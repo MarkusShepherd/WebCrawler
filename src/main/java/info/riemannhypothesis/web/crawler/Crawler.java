@@ -33,8 +33,9 @@ public class Crawler {
 
     private final BloomFilter<String> visited;
     private final BlockingQueue<Job>  queue;
-    private final int                 maxTries;
     private final int                 maxPages;
+    private final int                 maxTries;
+    private final int                 maxDepth;
     private final WorkerThread[]      workers;
     private final int                 numWorkers;
     private final AtomicInteger       total;
@@ -42,21 +43,23 @@ public class Crawler {
     // private static final Set<URL> EMPTY_SET = new HashSet<URL>();
 
     public Crawler(int maxPages) {
-        this(maxPages, 5, Runtime.getRuntime().availableProcessors() * 2,
+        this(maxPages, 5, 3, Runtime.getRuntime().availableProcessors() * 2,
                 System.out);
     }
 
-    public Crawler(int maxPages, int maxTries, PrintStream ps) {
-        this(maxPages, maxTries,
-                Runtime.getRuntime().availableProcessors() * 2, ps);
+    public Crawler(int maxPages, int maxTries, int maxDepth, PrintStream ps) {
+        this(maxPages, maxTries, maxDepth, Runtime.getRuntime()
+                .availableProcessors() * 2, ps);
     }
 
-    public Crawler(int maxPages, int maxTries, int numWorkers, PrintStream ps) {
+    public Crawler(int maxPages, int maxTries, int maxDepth, int numWorkers,
+            PrintStream ps) {
         queue = new LinkedBlockingQueue<Job>();
         visited = BloomFilter.create(
                 Funnels.stringFunnel(Charset.forName("UTF-8")), maxPages);
         this.maxTries = maxTries;
         this.maxPages = maxPages;
+        this.maxDepth = maxDepth;
         total = new AtomicInteger(0);
 
         this.numWorkers = numWorkers;
@@ -76,15 +79,17 @@ public class Crawler {
     public static void main(String[] args) throws IOException {
 
         if (args.length < 2) {
-            System.out.println("Usage: Crawler maxPages maxTries [-|outFile]");
+            System.out
+                    .println("Usage: Crawler maxPages maxTries [maxDepth [-|outFile]]");
         }
 
         int maxPages = Integer.parseInt(args[0], 10);
         int maxTries = Integer.parseInt(args[1], 10);
-        PrintStream ps = args.length < 3 || "-".equals(args[2].trim()) ? System.out
-                : new PrintStream(new File(args[2]));
+        int maxDepth = args.length < 3 ? 3 : Integer.parseInt(args[2], 10);
+        PrintStream ps = args.length < 4 || "-".equals(args[3].trim()) ? System.out
+                : new PrintStream(new File(args[3]));
 
-        Crawler crawler = new Crawler(maxPages, maxTries, ps);
+        Crawler crawler = new Crawler(maxPages, maxTries, maxDepth, ps);
         BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
         String s;
         while ((s = in.readLine()) != null) {
@@ -136,10 +141,16 @@ public class Crawler {
 
     private class Job {
         private int       tries = 0;
+        private final int depth;
         private final URL url;
 
         private Job(URL url) {
+            this(url, 0);
+        }
+
+        private Job(URL url, int depth) {
             this.url = url;
+            this.depth = depth;
         }
     }
 
@@ -176,6 +187,9 @@ public class Crawler {
                         queue.offer(job);
                     }
                     continue;
+                } catch (Exception e) {
+                    visited.put(urlString);
+                    continue;
                 }
 
                 visited.put(urlString);
@@ -183,9 +197,17 @@ public class Crawler {
 
                 for (final URL link : links) {
                     final String linkURL = link.toString();
+                    final boolean internal = job.url.getHost().equals(
+                            link.getHost());
                     ps.println(urlString + '\t' + linkURL);
                     if (!visited.mightContain(linkURL)) {
-                        queue.offer(new Job(link));
+                        if (internal) {
+                            if (job.depth < maxDepth) {
+                                queue.offer(new Job(link, job.depth + 1));
+                            }
+                        } else {
+                            queue.offer(new Job(link));
+                        }
                     }
                 }
             }
