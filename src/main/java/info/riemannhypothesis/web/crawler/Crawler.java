@@ -15,6 +15,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -33,9 +34,10 @@ public class Crawler {
     private final BloomFilter<String> visited;
     private final BlockingQueue<Job>  queue;
     private final int                 maxTries;
-    // private final int maxPages;
+    private final int                 maxPages;
     private final WorkerThread[]      workers;
     private final int                 numWorkers;
+    private final AtomicInteger       total;
 
     // private static final Set<URL> EMPTY_SET = new HashSet<URL>();
 
@@ -54,13 +56,14 @@ public class Crawler {
         visited = BloomFilter.create(
                 Funnels.stringFunnel(Charset.forName("UTF-8")), maxPages);
         this.maxTries = maxTries;
-        // this.maxPages = maxPages;
+        this.maxPages = maxPages;
+        total = new AtomicInteger(0);
 
         this.numWorkers = numWorkers;
         workers = new WorkerThread[numWorkers];
 
         for (int i = 0; i < numWorkers; i++) {
-            workers[i] = new WorkerThread(ps, maxPages / numWorkers);
+            workers[i] = new WorkerThread(ps);
         }
     }
 
@@ -142,19 +145,16 @@ public class Crawler {
 
     private class WorkerThread extends Thread {
         private final PrintStream ps;
-        private int               count = 0;
-        private final int         maxCount;
 
-        private WorkerThread(final PrintStream ps, final int maxCount) {
+        private WorkerThread(final PrintStream ps) {
             this.ps = ps;
-            this.maxCount = maxCount;
             setPriority(getPriority() - 1);
             start();
         }
 
         @Override
         public void run() {
-            while (count < maxCount) {
+            while (total.get() < maxPages) {
                 final Job job;
                 try {
                     job = queue.take();
@@ -179,7 +179,7 @@ public class Crawler {
                 }
 
                 visited.put(urlString);
-                count++;
+                total.incrementAndGet();
 
                 for (final URL link : links) {
                     final String linkURL = link.toString();
