@@ -4,6 +4,8 @@
 package info.riemannhypothesis.web.crawler;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
 
 import org.jsoup.Jsoup;
 import org.jsoup.helper.Validate;
@@ -15,36 +17,46 @@ import org.jsoup.select.Elements;
  * Example program to list links from a URL.
  */
 public class ListLinks {
-    public static void main(String[] args) throws IOException {
-        Validate.isTrue(args.length == 1, "usage: supply url to fetch");
-        String url = args[0];
-        print("Fetching %s...", url);
+    public static void main(String[] args) throws MalformedURLException {
+        Validate.isTrue(args.length >= 1, "usage: supply url to fetch");
+        for (String url : args) {
+            print("Fetching %s...", url);
 
-        Document doc = Jsoup.connect(url).get();
-        Elements links = doc.select("a[href]");
-        Elements media = doc.select("[src]");
-        Elements imports = doc.select("link[href]");
+            Document doc;
+            try {
+                doc = Jsoup.connect(url).get();
+            } catch (IOException e) {
+                e.printStackTrace();
+                continue;
+            }
+            Elements links = doc.select("a[href]");
+            Elements media = doc.select("[src]");
+            Elements imports = doc.select("link[href]");
 
-        print("\nMedia: (%d)", media.size());
-        for (Element src : media) {
-            if (src.tagName().equals("img"))
-                print(" * %s: <%s> %sx%s (%s)", src.tagName(),
-                        src.attr("abs:src"), src.attr("width"),
-                        src.attr("height"), trim(src.attr("alt"), 20));
-            else
-                print(" * %s: <%s>", src.tagName(), src.attr("abs:src"));
-        }
+            print("\nMedia: (%d)", media.size());
+            for (Element src : media) {
+                if (src.tagName().equals("img"))
+                    print(" * %s: <%s> %sx%s (%s)", src.tagName(),
+                            src.attr("abs:src"), src.attr("width"),
+                            src.attr("height"), trim(src.attr("alt"), 20));
+                else
+                    print(" * %s: <%s>", src.tagName(), src.attr("abs:src"));
+            }
 
-        print("\nImports: (%d)", imports.size());
-        for (Element link : imports) {
-            print(" * %s <%s> (%s)", link.tagName(), link.attr("abs:href"),
-                    link.attr("rel"));
-        }
+            print("\nImports: (%d)", imports.size());
+            for (Element link : imports) {
+                print(" * %s <%s> (%s)", link.tagName(), link.attr("abs:href"),
+                        link.attr("rel"));
+            }
 
-        print("\nLinks: (%d)", links.size());
-        for (Element link : links) {
-            print(" * a: <%s>  (%s)", link.attr("abs:href"),
-                    trim(link.text(), 35));
+            print("\nLinks: (%d)", links.size());
+            for (Element link : links) {
+                /* print(" * a: <%s>  (%s)", link.attr("abs:href"),
+                        trim(link.text(), 35));*/
+                URL linkURL = new URL(link.attr("abs:href"));
+                System.out.println(linkURL.toExternalForm());
+                System.out.println(Crawler.canonicalURL(linkURL).toExternalForm());
+            }
         }
     }
 
@@ -58,4 +70,6 @@ public class ListLinks {
         else
             return s;
     }
+
+    
 }
