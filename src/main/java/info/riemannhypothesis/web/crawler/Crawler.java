@@ -103,7 +103,7 @@ public class Crawler {
         Thread countThread = new Thread() {
         	@Override
         	public void run() {
-        		while (true) {
+        		while (crawler.total.get() <= crawler.maxPages) {
         			try {
         				Thread.sleep(10000);
         				System.out.println("Visited " + crawler.total.get() + " out of " + crawler.maxPages + " pages.");
@@ -121,6 +121,7 @@ public class Crawler {
             }
         }
 
+	System.out.println("Done.");
     }
 
     public static Set<URL> getLinks(URL url) throws IOException {
