@@ -89,7 +89,7 @@ public class Crawler {
         PrintStream ps = args.length < 4 || "-".equals(args[3].trim()) ? System.out
                 : new PrintStream(new File(args[3]));
 
-        Crawler crawler = new Crawler(maxPages, maxTries, maxDepth, ps);
+        final Crawler crawler = new Crawler(maxPages, maxTries, maxDepth, ps);
         BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
         String s;
         while ((s = in.readLine()) != null) {
@@ -99,6 +99,20 @@ public class Crawler {
                 e.printStackTrace();
             }
         }
+        
+        Thread countThread = new Thread() {
+        	@Override
+        	public void run() {
+        		while (true) {
+        			try {
+        				Thread.sleep(10000);
+        				System.out.println("Visited " + crawler.total.get() + " out of " + crawler.maxPages + " pages.");
+        			} catch (InterruptedException e) {
+        			}
+        		}
+        	}
+        };
+        countThread.start();
 
         for (int i = 0; i < crawler.numWorkers; i++) {
             try {
