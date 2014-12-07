@@ -15,6 +15,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.jsoup.Jsoup;
@@ -54,7 +55,8 @@ public class Crawler {
 
     public Crawler(int maxPages, int maxTries, int maxDepth, int numWorkers,
             PrintStream ps) {
-        queue = new LinkedBlockingQueue<Job>();
+        // queue = new LinkedBlockingQueue<Job>();
+        queue = new PriorityBlockingQueue<Job>(maxPages);
         visited = BloomFilter.create(
                 Funnels.stringFunnel(Charset.forName("UTF-8")), maxPages);
         this.maxTries = maxTries;
@@ -154,7 +156,7 @@ public class Crawler {
         return result;
     }
 
-    private class Job {
+    private class Job implements Comparable<Job> {
         private int       tries = 0;
         private final int depth;
         private final URL url;
@@ -167,6 +169,11 @@ public class Crawler {
             this.url = url;
             this.depth = depth;
         }
+
+		@Override
+		public int compareTo(Job that) {
+			return this.depth - that.depth;
+		}
     }
 
     private class WorkerThread extends Thread {
